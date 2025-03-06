@@ -1,56 +1,169 @@
 #!/bin/bash
 
-#script che legge i nomi di file in una cartella, interprentandone la data (se presente), e ne cambia il timestamp
-#da eseguire senza argomenti
+# Script che legge i nomi di file in una cartella, interpretandone la data (se presente),
+# e ne cambia il timestamp.
+# Da eseguire senza argomenti.
+# Sviluppato per foto e video con prefissi IMG, VID, PANO e screenshot.
+# Prova prima ad estrarre la data dai metadati EXIF (se disponibile e per IMG/VID),
+# altrimenti usa la data dal nome del file (se nel formato previsto).
+
+# VARIABILE PER LA MODALITÀ DRY-RUN (SIMULAZIONE)
+DRY_RUN=false
+
+# Funzione per estrarre la data dal nome del file
+extract_date_from_filename() {
+    local filename="$1"
+    local extracted_date_filename=""
+
+    if [[ "$filename" =~ ^IMG([0-9]{8})([0-9]{4}) ]]; then # IMG-YYYYMMDD-HHMM (camera, telegram, instagram)
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+    elif [[ "$filename" =~ ^IMG([0-9]{8})WA[0-9]+ ]]; then   # IMG-YYYYMMDD-WA... (whatsapp senza ora)
+        extracted_date_filename="${BASH_REMATCH[1]}0000" # Imposta l'ora a 00:00
+    elif [[ "$filename" =~ ^VID([0-9]{8})([0-9]{4}) ]]; then # VID-YYYYMMDD-HHMM
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+    elif [[ "$filename" =~ ^PANO([0-9]{8})([0-9]{4}) ]]; then # PANO-YYYYMMDD-HHMM
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+    elif [[ "$filename" =~ ^Screenshot_([0-9]{8})_([0-9]{6}) ]]; then # Screenshot_YYYYMMDD_HHMMSS
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]:0:4}" # YYYYMMDDHHmm (tronca i secondi)
+    fi
+
+    if [[ -n "$extracted_date_filename" ]]; then # Verifica se la data è stata estratta
+        if [[ ${#extracted_date_filename} -eq 8 ]] || [[ ${#extracted_date_filename} -eq 12 ]]; then
+            if [[ "$extracted_date_filename" =~ ^[0-9]+$ ]]; then
+                echo "$extracted_date_filename"
+                return 0 # Data estratta con successo
+            fi
+        fi
+    fi
+    return 1 # Estrazione data fallita o data non valida
+}
+
+# Funzione per estrarre la data dai metadati EXIF
+extract_date_from_exif() {
+    local filename="$1"
+    local extracted_date_exif=$(exiftool -s -s -n -CreateDate "$filename" 2>/dev/null) # 2>/dev/null per sopprimere errori se exiftool non è installato o non trova la data
+    if [[ -n "$extracted_date_exif" ]]; then
+        # Formato EXIF: YYYY:MM:DD HH:MM:SS o YYYY:MM:DD HH:MM:SS±HH:MM
+        # Converti nel formato YYYYMMDDHHmm richiesto da touch -t
+        extracted_date_exif=$(date -d "$extracted_date_exif" +%Y%m%d%H%M 2>/dev/null) # 2>/dev/null per gestire errori di date non valide
+        if [[ -n "$extracted_date_exif" ]] && [[ "$extracted_date_exif" =~ ^[0-9]{12}$ ]]; then
+            echo "$extracted_date_exif"
+            return 0 # Data EXIF estratta e convertita con successo
+        fi
+    fi
+    return 1 # Estrazione data EXIF fallita o data non valida
+}
+
+
+# Gestione argomenti script e opzione dry-run
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -n|--dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --help|-h)
+            echo "Utilizzo: $0 [-n|--dry-run] [cartella]"
+            echo ""
+            echo "  Esegui lo script senza argomenti nella cartella corrente."
+            echo "  Opzioni:"
+            echo "    -n, --dry-run   Esegue lo script in modalità simulazione, senza modificare i timestamp."
+            echo "    -h, --help      Mostra questo messaggio di aiuto."
+            echo "    [cartella]      Esegui lo script ricorsivamente sulla cartella specificata."
+            exit 0
+            ;;
+        *)
+            break # Esci dal ciclo while per gestire la cartella (se presente)
+            ;;
+    esac
+done
+
 
 case "$#" in
-    0 ) #primo avvio
-    echo "sicuro di voler cambaiare tutti i timestamp in questa cartella? Scrivi YES"
-    read answer
-    if [ $answer != YES ]; then exit 1; fi
-    ;;
-
-    1 ) #lanciato in ricorsione
-    if ! [ -d "$1" ]; then exit 1
-    else cd "$1" 
+    0 ) # Primo avvio (senza argomento cartella)
+    echo "Sicuro di voler cambiare tutti i timestamp nella cartella corrente? Scrivi YES per confermare."
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "**ATTENZIONE:** Script in modalità DRY-RUN (simulazione). Nessun timestamp verrà modificato."
+    fi
+    read -r answer
+    if [[ "$answer" != "YES" ]]; then
+        echo "Operazione annullata."
+        exit 1
     fi
     ;;
-
-    *) #errore
-    echo "credo tu abbia sbagliato amico"; exit 1
+    1 ) # Avvio ricorsivo con sottocartella come argomento
+    if [[ ! -d "$1" ]]; then
+        echo "Errore: '$1' non è una cartella valida."
+        exit 1
+    else
+        cd "$1" || { echo "Errore: impossibile accedere a '$1'"; exit 1; } # Uscita in caso di errore cd
+    fi
+    ;;
+    *) # Errore numero argomenti (dopo gestione opzioni)
+    echo "Utilizzo: $0 [-n|--dry-run] [cartella]"
+    echo "Esegui '$0 --help' per maggiori informazioni."
+    exit 1
     ;;
 esac
 
-for f in *; do
-    if [ -d "$f" ]; then  #e' una cartella
-        $0 "$f"           #avvio lo script usando la cartella come argomento
-    elif [ -f "$f" ]; then #e' un file
-        if [[ "$f" = IMG* ]] || [[ "$f" = VID* ]]; then # e' una foto
-            if [[ "$f" = ?????????????WA* ]]; then # e' di WhatsApp
-                #in questo caso so che e' del tipo IMG-DATA-WA0000, non setto l'orario
-                DATA=$(echo "$f" | cut -c 5-12)0000
-            else #e' di camera, telegram o instagram (se video instagram li numera a cazzo)
-                DATA=$(echo "$f" | cut -c 5-12,14-17)
-            fi
-            
-            #controllo che DATA sia effettivamente una data
-            if [[ ${#DATA} -eq 8 ]] || [[ ${#DATA} -eq 12 ]]; then  #se e' lunga 8 o 12 caratteri (YYYYMMDDHHmm)
-                if [[ $DATA =~ ^[0-9]+$ ]]; then            #se e' numerica
-                    touch -t $DATA "$f"
+# Controllo presenza exiftool e avviso utente (una sola volta all'inizio)
+if ! command -v exiftool &> /dev/null; then
+    echo "Avviso: exiftool non è installato. L'estrazione della data dai metadati EXIF non sarà disponibile."
+    echo "Installa exiftool per una funzionalità completa (es: sudo apt install libimage-exiftool-perl)."
+fi
+
+
+# Ciclo su tutti i file e cartelle nella cartella corrente
+find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while loop per gestire nomi file con spazi e caratteri speciali
+    if [[ -d "$item" ]]; then
+        if [[ "$item" != "." ]]; then # Evita di richiamare ricorsivamente la cartella corrente "."
+            "$0" "$item" # Avvia lo script ricorsivamente per le sottocartelle
+        fi
+    elif [[ -f "$item" ]]; then
+        filename=$(basename "$item") # Ottieni solo il nome del file, non il percorso
+        file_prefix=$(echo "$filename" | cut -c 1-4) # Prefisso per identificare tipo file
+
+        extracted_date="" # Inizializza la variabile data estratta
+
+        if [[ "$file_prefix" == "IMG" ]] || [[ "$file_prefix" == "VID" ]]; then
+            # Prova prima EXIF per IMG e VID
+            if extract_date_from_exif "$filename"; then
+                extracted_date=$(extract_date_from_exif "$filename")
+                echo "Data EXIF estratta da '$filename': $extracted_date"
+            else
+                if extract_date_from_filename "$filename"; then
+                    extracted_date=$(extract_date_from_filename "$filename")
+                    echo "Data dal nome file estratta da '$filename': $extracted_date (EXIF non disponibile)"
+                else
+                    echo "Nessuna data trovata per '$filename'."
                 fi
             fi
-        elif [[ "$f" = PANO* ]]; then # e' un panorama
-	     DATA=$(echo "$f" | cut -c 6-13,15-18)
-	     #controllo che DATA sia effettivamente una data
-	     if [[ ${#DATA} -eq 8 ]] || [[ ${#DATA} -eq 12 ]]; then  #se e' lunga 8 o 12 caratteri (YYYYMMDDHHmm)
-                 if [[ $DATA =~ ^[0-9]+$ ]]; then            #se e' numerica
-                     touch -t $DATA "$f"
-                 fi
-             fi
-   	else echo "$f"; fi
+        elif [[ "$file_prefix" == "PANO" ]] || [[ "$filename" =~ ^Screenshot_ ]]; then # PANO o Screenshot: solo nome file
+            if extract_date_from_filename "$filename"; then
+                extracted_date=$(extract_date_from_filename "$filename")
+                echo "Data dal nome file estratta da '$filename': $extracted_date"
+            else
+                echo "Nessuna data trovata per '$filename'."
+            fi
+        else
+            echo "File '$filename' ignorato (prefisso non riconosciuto)."
+        fi
+
+        if [[ -n "$extracted_date" ]]; then # Se è stata estratta una data valida
+            if [[ "$DRY_RUN" == false ]]; then # Se NON è in modalità dry-run, modifica il timestamp
+                if ! touch -t "$extracted_date" "$item"; then # Controllo errore touch
+                    echo "Errore: impossibile cambiare timestamp di '$item'."
+                else
+                    echo "Timestamp di '$item' cambiato con data: $extracted_date"
+                fi
+            else # Se è in modalità dry-run, simula la modifica
+                echo "[SIMULAZIONE] Timestamp di '$item' *sarebbe* cambiato con data: $extracted_date"
+            fi
+        fi
     fi
 done
 
-#sviluppi futuri:
-# - se la foto e' di camera provare a prendere DATA con exif
-# - supporto a screenshot
+echo "Script completato."
+if [[ "$DRY_RUN" == true ]]; then
+    echo "**Modalità DRY-RUN:** Nessun timestamp è stato effettivamente modificato."
+fi
