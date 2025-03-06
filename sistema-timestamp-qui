@@ -1,0 +1,56 @@
+#!/bin/bash
+
+#script che legge i nomi di file in una cartella, interprentandone la data (se presente), e ne cambia il timestamp
+#da eseguire senza argomenti
+
+case "$#" in
+    0 ) #primo avvio
+    echo "sicuro di voler cambaiare tutti i timestamp in questa cartella? Scrivi YES"
+    read answer
+    if [ $answer != YES ]; then exit 1; fi
+    ;;
+
+    1 ) #lanciato in ricorsione
+    if ! [ -d "$1" ]; then exit 1
+    else cd "$1" 
+    fi
+    ;;
+
+    *) #errore
+    echo "credo tu abbia sbagliato amico"; exit 1
+    ;;
+esac
+
+for f in *; do
+    if [ -d "$f" ]; then  #e' una cartella
+        $0 "$f"           #avvio lo script usando la cartella come argomento
+    elif [ -f "$f" ]; then #e' un file
+        if [[ "$f" = IMG* ]] || [[ "$f" = VID* ]]; then # e' una foto
+            if [[ "$f" = ?????????????WA* ]]; then # e' di WhatsApp
+                #in questo caso so che e' del tipo IMG-DATA-WA0000, non setto l'orario
+                DATA=$(echo "$f" | cut -c 5-12)0000
+            else #e' di camera, telegram o instagram (se video instagram li numera a cazzo)
+                DATA=$(echo "$f" | cut -c 5-12,14-17)
+            fi
+            
+            #controllo che DATA sia effettivamente una data
+            if [[ ${#DATA} -eq 8 ]] || [[ ${#DATA} -eq 12 ]]; then  #se e' lunga 8 o 12 caratteri (YYYYMMDDHHmm)
+                if [[ $DATA =~ ^[0-9]+$ ]]; then            #se e' numerica
+                    touch -t $DATA "$f"
+                fi
+            fi
+        elif [[ "$f" = PANO* ]]; then # e' un panorama
+	     DATA=$(echo "$f" | cut -c 6-13,15-18)
+	     #controllo che DATA sia effettivamente una data
+	     if [[ ${#DATA} -eq 8 ]] || [[ ${#DATA} -eq 12 ]]; then  #se e' lunga 8 o 12 caratteri (YYYYMMDDHHmm)
+                 if [[ $DATA =~ ^[0-9]+$ ]]; then            #se e' numerica
+                     touch -t $DATA "$f"
+                 fi
+             fi
+   	else echo "$f"; fi
+    fi
+done
+
+#sviluppi futuri:
+# - se la foto e' di camera provare a prendere DATA con exif
+# - supporto a screenshot
