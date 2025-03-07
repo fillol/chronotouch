@@ -51,7 +51,7 @@ The script recognizes the following filename formats for date extraction. It wil
 To run the script in the current directory, simply execute it without any arguments:
 
 ```bash
-./timestamp_modifier.sh
+./chronotouch.sh
 ```
 
 The script will prompt for confirmation before processing files in the current directory.
@@ -61,7 +61,7 @@ The script will prompt for confirmation before processing files in the current d
 To process files in a specific folder and its subfolders, provide the folder path as an argument:
 
 ```bash
-./timestamp_modifier.sh /path/to/your/folder
+./chronotouch.sh /path/to/your/folder
 ```
 
 **Options:**
@@ -69,51 +69,51 @@ To process files in a specific folder and its subfolders, provide the folder pat
 *   `-n`, `--dry-run`:  **Dry-run mode (simulation).**  Runs the script without modifying any timestamps.  Use this mode first to preview the changes.
 
     ```bash
-    ./timestamp_modifier.sh -n
-    ./timestamp_modifier.sh --dry-run /path/to/folder
+    ./chronotouch.sh -n
+    ./chronotouch.sh --dry-run /path/to/folder
     ```
 
 *   `-v`, `--verbose`:  **Verbose mode.** Enables detailed output, showing each step of the process, including date extraction attempts and results. Useful for debugging.
 
     ```bash
-    ./timestamp_modifier.sh -v
-    ./timestamp_modifier.sh --verbose /path/to/folder
+    ./chronotouch.sh -v
+    ./chronotouch.sh --verbose /path/to/folder
     ```
 
 *   `-i`, `--interactive`: **Interactive mode.**  Prompts for user confirmation before modifying the timestamp of each file.
 
     ```bash
-    ./timestamp_modifier.sh -i
-    ./timestamp_modifier.sh --interactive /path/to/folder
+    ./chronotouch.sh -i
+    ./chronotouch.sh --interactive /path/to/folder
     ```
 
 *   `-h`, `--help`: **Help message.** Displays the usage instructions and options.
 
     ```bash
-    ./timestamp_modifier.sh -h
-    ./timestamp_modifier.sh --help
+    ./chronotouch.sh -h
+    ./chronotouch.sh --help
     ```
 
 **Examples:**
 
 *   **Dry-run in the current directory:**
     ```bash
-    ./timestamp_modifier.sh -n
+    ./chronotouch.sh -n
     ```
 
 *   **Verbose mode in a specific folder:**
     ```bash
-    ./timestamp_modifier.sh -v /home/user/pictures
+    ./chronotouch.sh -v /home/user/pictures
     ```
 
 *   **Interactive mode in the current directory:**
     ```bash
-    ./timestamp_modifier.sh -i
+    ./chronotouch.sh -i
     ```
 
 *   **Interactive and verbose mode with dry-run in a folder:**
     ```bash
-    ./timestamp_modifier.sh -niv /home/user/photos
+    ./chronotouch.sh -niv /home/user/photos
     ```
 
 ## Dependencies
