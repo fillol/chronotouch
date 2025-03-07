@@ -1,58 +1,138 @@
 # ChronoTouch
 
-This Bash script is designed to automate changing the timestamps of files (modification date and time) within a folder, based on the date present in the filename or, preferably, in the EXIF metadata of images (if available). It is particularly useful for chronologically organizing photos and videos from various sources (camera, WhatsApp, screenshots, etc.).
+This script is a command-line tool written in Bash to modify the timestamps (both "modified" and "accessed" times) of image and video files based on the date information extracted from their filenames or EXIF metadata.
 
-## Main Features:
+It's designed to handle files with specific naming conventions commonly used by cameras, smartphones, and screenshot tools. The script prioritizes EXIF metadata for accuracy but falls back to filename parsing when EXIF data is not available or valid.
 
-*   **Date Extraction:**
-    *   **EXIF Priority:** For image files (`IMG`, `VID`), the script first attempts to extract the creation date from EXIF metadata using `exiftool`. If the EXIF date is available and valid, it is used.
-    *   **Filename as Fallback:** If EXIF metadata is not available or does not contain a valid date, the script parses the filename to extract the date according to several predefined patterns (see "Supported Filename Formats" section).
-*   **Timestamp Modification:** Uses the `touch -t` command to set the file timestamp to the extracted date.
-*   **Recursive Handling:** The script can be executed on a specific folder, recursively processing all subfolders as well.
-*   **Dry-run (Simulation) Mode:** The `-n` or `--dry-run` option allows running the script in simulation mode, displaying the changes that would be made without actually modifying timestamps.
-*   **Supported File Formats:**
-    *   **Images and Videos:** Prefixes `IMG`, `VID`, `PANO`.
-    *   **Screenshots:** Prefix `Screenshot_`.
-    *   **WhatsApp Images:** Recognition of the `IMG-YYYYMMDD-WA*` pattern (time is set to 00:00 for these files due to the lack of time information in typical WhatsApp filenames).
+## Features
 
-## Supported Filename Formats (for date extraction from filename):
+*   **Date Extraction from Filename:** Extracts date and time information from filenames matching predefined patterns for IMG, VID, PANO, Screenshot, and Schermata (Italian for Screenshot) prefixes.
+*   **EXIF Metadata Extraction:** Optionally extracts the creation date from EXIF metadata (using `exiftool`) for potentially higher accuracy, especially for image and video files.
+*   **Timestamp Modification:** Modifies the "modified" and "accessed" timestamps of the files using the extracted date.
+*   **Dry-Run Mode:**  Simulates the timestamp modification process without actually changing any timestamps. Useful for testing and previewing changes.
+*   **Verbose Mode:** Provides detailed output logging to the console, useful for debugging and understanding the script's actions.
+*   **Interactive Mode:**  Prompts for user confirmation before modifying the timestamp of each file, adding an extra layer of safety.
+*   **Recursive Folder Processing:** Can process all files within a specified folder and its subfolders recursively.
+*   **Robust File Handling:**  Handles filenames with spaces and special characters correctly.
+*   **Error Handling:** Includes basic error handling for `touch` command failures and warns about missing `exiftool`.
 
-*   `IMG-YYYYMMDD-HHMM*` (e.g., `IMG-20250306-1315.JPG` - Camera, Telegram, Instagram)
-*   `IMG-YYYYMMDDWA*` (e.g., `IMG-20250306WA001.JPG` - WhatsApp images, time set to 00:00)
-*   `VID-YYYYMMDD-HHMM*` (e.g., `VID-20250306-1315.MP4`)
-*   `PANO-YYYYMMDD-HHMM*` (e.g., `PANO-20250306-1315.JPG`)
-*   `Screenshot_YYYYMMDD_HHMMSS*` (e.g., `Screenshot_20250306_131530.png`)
+## Supported Filename Formats
 
-## Prerequisites:
+The script recognizes the following filename formats for date extraction. It will try to extract date from EXIF metadata first for all recognized prefixes, and fallback to filename parsing if EXIF is not available or valid.
 
-*   **Bash:** The script is written in Bash and requires a Unix-like environment (Linux, macOS, WSL).
-*   **`exiftool` (optional, but recommended):** For extracting dates from EXIF metadata. Installable via package manager (e.g., `sudo apt install libimage-exiftool-perl` or `brew install exiftool`). If not installed, the script will still work by extracting dates only from filenames.
-*   **`date`:** Standard system `date` command.
+*   **IMG, VID, PANO Prefixes:**
+    *   `IMGYYYYMMDDHHMM`
+    *   `IMG-YYYYMMDD-HHMM`
+    *   `IMG_YYYYMMDD_HHMM`
+    *   `IMG-YYYYMMDDHHMM`
+    *   `IMG_YYYYMMDDHHMM`
+    *   `IMG-WA[0-9]+` (WhatsApp images, time set to 00:00)
+    *   `IMG_WA[0-9]+` (WhatsApp images, time set to 00:00)
+    *   `IMGWA[0-9]+` (WhatsApp images, time set to 00:00)
+    *   `IMG-YYYYMMDD-WA[0-9]+` (WhatsApp images with date, time set to 00:00)
+    *   `IMG_YYYYMMDD_WA[0-9]+` (WhatsApp images with date, time set to 00:00)
+    *   *(VID and PANO prefixes follow the same formats as IMG)*
 
-## How to Use:
+*   **Screenshot and Schermata Prefixes:**
+    *   `ScreenshotYYYYMMDDHHMMSS`
+    *   `Screenshot-YYYYMMDD-HHMMSS`
+    *   `Screenshot_YYYYMMDD_HHMMSS`
+    *   `SchermataYYYYMMDDHHMMSS`
+    *   `Schermata-YYYYMMDD-HHMMSS`
+    *   `Schermata_YYYYMMDDHHMMSS`
+    *   *(Both "Screenshot" and "Schermata" support underscore `_` or hyphen `-` as separators after the prefix and between date and time)*
 
-1.  **Save the script:** Save the code to a file, for example, `chronotouch.sh`.
-2.  **Make it executable:** `chmod +x chronotouch.sh`
-3.  **Run in the desired folder:**
+**Note:**  For WhatsApp images (`IMG-WA...`, `IMG_WA...`, `IMGWA...` and similar for VID and PANO), the time is set to `00:00` as WhatsApp filenames in this format do not include time information.
 
-    *   **Current Folder:** `./chronotouch.sh` (answer `YES` when prompted).
-    *   **Specific Folder (and subfolders):** `./chronotouch.sh path/to/folder`
-    *   **Dry-run (Simulation) Mode in current folder:** `./chronotouch.sh -n` or `./chronotouch.sh --dry-run`
-    *   **Dry-run (Simulation) Mode on specific folder:** `./chronotouch.sh -n path/to/folder`
-    *   **Help:** `./chronotouch.sh -h` or `./chronotouch.sh --help`
+## Usage
 
-## Important Notes:
+**Basic Usage:**
 
-*   **Initial Confirmation:** The first time you run the script without arguments in the current folder, confirmation is required by typing `YES` to proceed with timestamp modification.
-*   **WhatsApp Images:** For WhatsApp images with the `IMG-DATA-WA*` pattern, the timestamp time will be set to `00:00` due to the lack of time information in the typical WhatsApp filename.
-*   **Backup:** It is recommended to back up important files before running the script, especially the first time, for safety.
+To run the script in the current directory, simply execute it without any arguments:
 
----
+```bash
+./timestamp_modifier.sh
+```
 
-## GitHub Description (short and concise):
+The script will prompt for confirmation before processing files in the current directory.
 
-**`chronotouch.sh` - Bash Script to Organize Photo and Video Timestamps**
+**Specifying a Folder:**
 
-Chronologically organize your photos and videos! This Bash script automates file timestamp modification based on dates extracted from filenames or EXIF metadata (when available). Supports images from cameras, WhatsApp, screenshots, and more. Includes dry-run mode for simulation and recursive folder handling. Requires `exiftool` for full EXIF functionality (optional).
+To process files in a specific folder and its subfolders, provide the folder path as an argument:
 
-**[Link to GitHub repository (if applicable)]**  *(Add your GitHub repository link here if the script is hosted on GitHub)*
+```bash
+./timestamp_modifier.sh /path/to/your/folder
+```
+
+**Options:**
+
+*   `-n`, `--dry-run`:  **Dry-run mode (simulation).**  Runs the script without modifying any timestamps.  Use this mode first to preview the changes.
+
+    ```bash
+    ./timestamp_modifier.sh -n
+    ./timestamp_modifier.sh --dry-run /path/to/folder
+    ```
+
+*   `-v`, `--verbose`:  **Verbose mode.** Enables detailed output, showing each step of the process, including date extraction attempts and results. Useful for debugging.
+
+    ```bash
+    ./timestamp_modifier.sh -v
+    ./timestamp_modifier.sh --verbose /path/to/folder
+    ```
+
+*   `-i`, `--interactive`: **Interactive mode.**  Prompts for user confirmation before modifying the timestamp of each file.
+
+    ```bash
+    ./timestamp_modifier.sh -i
+    ./timestamp_modifier.sh --interactive /path/to/folder
+    ```
+
+*   `-h`, `--help`: **Help message.** Displays the usage instructions and options.
+
+    ```bash
+    ./timestamp_modifier.sh -h
+    ./timestamp_modifier.sh --help
+    ```
+
+**Examples:**
+
+*   **Dry-run in the current directory:**
+    ```bash
+    ./timestamp_modifier.sh -n
+    ```
+
+*   **Verbose mode in a specific folder:**
+    ```bash
+    ./timestamp_modifier.sh -v /home/user/pictures
+    ```
+
+*   **Interactive mode in the current directory:**
+    ```bash
+    ./timestamp_modifier.sh -i
+    ```
+
+*   **Interactive and verbose mode with dry-run in a folder:**
+    ```bash
+    ./timestamp_modifier.sh -niv /home/user/photos
+    ```
+
+## Dependencies
+
+*   **Bash:** The script is written in Bash and requires a Bash shell to run.
+*   **exiftool (Optional but Recommended):**  For EXIF metadata extraction, the script uses `exiftool`.  `exiftool` is highly recommended for more accurate date extraction, especially for image and video files.
+
+    **Installation of `exiftool` (Debian/Ubuntu):**
+
+    ```bash
+    sudo apt install libimage-exiftool-perl
+    ```
+
+    For other distributions or operating systems, refer to the `exiftool` documentation for installation instructions.
+
+## Important Notes
+
+*   **Run in Dry-Run Mode First:** It is **highly recommended** to run the script in dry-run mode (`-n` or `--dry-run`) first to preview the changes and ensure the script is behaving as expected before actually modifying any timestamps.
+*   **Confirmation Required:** When running the script in the current directory without a folder argument, you will be prompted to type `YES` to confirm the operation. This is a safety measure to prevent accidental timestamp modifications in the wrong directory.
+*   **No Date Found:** If the script cannot extract a valid date from either EXIF metadata or the filename for a particular file, it will output a "No date found..." message and will **not** modify the timestamp of that file.
+*   **Error Handling:** The script includes basic error handling for the `touch` command. If the `touch` command fails to modify the timestamp (e.g., due to file permissions), an error message will be displayed.
+*   **Backup Recommended:**  Before running the script on a large collection of files, it is always a good practice to **back up your files** as a precaution, especially if you are not using dry-run mode initially.
