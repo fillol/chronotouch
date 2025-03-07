@@ -1,46 +1,58 @@
-Questo script Bash è progettato per automatizzare la modifica dei timestamp di file (data e ora di modifica) all'interno di una cartella, basandosi sulla data presente nel nome del file o, preferibilmente, nei metadati EXIF delle immagini (se disponibili).  È particolarmente utile per organizzare cronologicamente foto e video provenienti da diverse fonti (fotocamera, WhatsApp, screenshot, ecc.).
+# ChronoTouch
 
-## Funzionalità Principali:
+This Bash script is designed to automate changing the timestamps of files (modification date and time) within a folder, based on the date present in the filename or, preferably, in the EXIF metadata of images (if available). It is particularly useful for chronologically organizing photos and videos from various sources (camera, WhatsApp, screenshots, etc.).
 
-*   **Estrazione Data:**
-    *   **Priorità EXIF:** Per file immagine (`IMG`, `VID`), lo script tenta prima di estrarre la data di creazione dai metadati EXIF utilizzando `exiftool`. Se la data EXIF è disponibile e valida, viene utilizzata.
-    *   **Nome File come Fallback:** Se i metadati EXIF non sono disponibili o non contengono una data valida, lo script analizza il nome del file per estrarre la data secondo diversi pattern predefiniti (vedi sezione "Formati Nome File Supportati").
-*   **Modifica Timestamp:** Utilizza il comando `touch -t` per impostare il timestamp dei file alla data estratta.
-*   **Gestione Ricorsiva:**  Lo script può essere eseguito su una cartella specifica, elaborando anche tutte le sottocartelle in modo ricorsivo.
-*   **Modalità Simulazione (Dry-run):**  L'opzione `-n` o `--dry-run` permette di eseguire lo script in modalità simulazione, visualizzando le modifiche che verrebbero apportate senza effettivamente modificare i timestamp.
-*   **Supporto Formati File:**
-    *   **Immagini e Video:** Prefissi `IMG`, `VID`, `PANO`.
-    *   **Screenshot:** Prefisso `Screenshot_`.
-    *   **WhatsApp Immagini:** Riconoscimento del pattern `IMG-YYYYMMDD-WA*` (l'ora viene impostata a 00:00 per questi file a causa della mancanza di informazione oraria nel nome file tipico di WhatsApp).
+## Main Features:
 
-## Formati Nome File Supportati (per estrazione data dal nome):
+*   **Date Extraction:**
+    *   **EXIF Priority:** For image files (`IMG`, `VID`), the script first attempts to extract the creation date from EXIF metadata using `exiftool`. If the EXIF date is available and valid, it is used.
+    *   **Filename as Fallback:** If EXIF metadata is not available or does not contain a valid date, the script parses the filename to extract the date according to several predefined patterns (see "Supported Filename Formats" section).
+*   **Timestamp Modification:** Uses the `touch -t` command to set the file timestamp to the extracted date.
+*   **Recursive Handling:** The script can be executed on a specific folder, recursively processing all subfolders as well.
+*   **Dry-run (Simulation) Mode:** The `-n` or `--dry-run` option allows running the script in simulation mode, displaying the changes that would be made without actually modifying timestamps.
+*   **Supported File Formats:**
+    *   **Images and Videos:** Prefixes `IMG`, `VID`, `PANO`.
+    *   **Screenshots:** Prefix `Screenshot_`.
+    *   **WhatsApp Images:** Recognition of the `IMG-YYYYMMDD-WA*` pattern (time is set to 00:00 for these files due to the lack of time information in typical WhatsApp filenames).
 
-*   `IMG-YYYYMMDD-HHMM*` (es: `IMG-20250306-1315.JPG` - Fotocamera, Telegram, Instagram)
-*   `IMG-YYYYMMDDWA*` (es: `IMG-20250306WA001.JPG` - WhatsApp immagini, ora impostata a 00:00)
-*   `VID-YYYYMMDD-HHMM*` (es: `VID-20250306-1315.MP4`)
-*   `PANO-YYYYMMDD-HHMM*` (es: `PANO-20250306-1315.JPG`)
-*   `Screenshot_YYYYMMDD_HHMMSS*` (es: `Screenshot_20250306_131530.png`)
+## Supported Filename Formats (for date extraction from filename):
 
-## Prerequisiti:
+*   `IMG-YYYYMMDD-HHMM*` (e.g., `IMG-20250306-1315.JPG` - Camera, Telegram, Instagram)
+*   `IMG-YYYYMMDDWA*` (e.g., `IMG-20250306WA001.JPG` - WhatsApp images, time set to 00:00)
+*   `VID-YYYYMMDD-HHMM*` (e.g., `VID-20250306-1315.MP4`)
+*   `PANO-YYYYMMDD-HHMM*` (e.g., `PANO-20250306-1315.JPG`)
+*   `Screenshot_YYYYMMDD_HHMMSS*` (e.g., `Screenshot_20250306_131530.png`)
 
-*   **Bash:**  Lo script è scritto in Bash e richiede un ambiente Unix-like (Linux, macOS, WSL).
-*   **`exiftool` (opzionale, ma raccomandato):** Per l'estrazione della data dai metadati EXIF. Installabile tramite gestore di pacchetti (es: `sudo apt install libimage-exiftool-perl` o `brew install exiftool`). Se non installato, lo script funzionerà estraendo la data solo dal nome file.
-*   **`date`:** Comando `date` standard di sistema.
+## Prerequisites:
 
-## Come Utilizzare:
+*   **Bash:** The script is written in Bash and requires a Unix-like environment (Linux, macOS, WSL).
+*   **`exiftool` (optional, but recommended):** For extracting dates from EXIF metadata. Installable via package manager (e.g., `sudo apt install libimage-exiftool-perl` or `brew install exiftool`). If not installed, the script will still work by extracting dates only from filenames.
+*   **`date`:** Standard system `date` command.
 
-1.  **Salva lo script:** Salva il codice in un file, ad esempio `cambia_timestamp.sh`.
-2.  **Rendi eseguibile:**  `chmod +x cambia_timestamp.sh`
-3.  **Esegui nella cartella desiderata:**
+## How to Use:
 
-    *   **Cartella Corrente:** `./cambia_timestamp.sh` (rispondere `YES` alla conferma).
-    *   **Cartella Specifica (e sottocartelle):** `./cambia_timestamp.sh percorso/della/cartella`
-    *   **Modalità Simulazione (Dry-run) nella cartella corrente:** `./cambia_timestamp.sh -n`  oppure `./cambia_timestamp.sh --dry-run`
-    *   **Modalità Simulazione (Dry-run) su cartella specifica:** `./cambia_timestamp.sh -n percorso/della/cartella`
-    *   **Aiuto:** `./cambia_timestamp.sh -h` oppure `./cambia_timestamp.sh --help`
+1.  **Save the script:** Save the code to a file, for example, `chronotouch.sh`.
+2.  **Make it executable:** `chmod +x chronotouch.sh`
+3.  **Run in the desired folder:**
 
-## Importante:
+    *   **Current Folder:** `./chronotouch.sh` (answer `YES` when prompted).
+    *   **Specific Folder (and subfolders):** `./chronotouch.sh path/to/folder`
+    *   **Dry-run (Simulation) Mode in current folder:** `./chronotouch.sh -n` or `./chronotouch.sh --dry-run`
+    *   **Dry-run (Simulation) Mode on specific folder:** `./chronotouch.sh -n path/to/folder`
+    *   **Help:** `./chronotouch.sh -h` or `./chronotouch.sh --help`
 
-*   **Conferma iniziale:**  La prima volta che si esegue lo script senza argomenti nella cartella corrente, è richiesta una conferma digitando `YES` per procedere con la modifica dei timestamp.
-*   **WhatsApp Immagini:** Per le immagini WhatsApp con pattern `IMG-DATA-WA*`, l'ora del timestamp verrà impostata a `00:00` a causa della mancanza di informazione oraria nel nome file tipico di WhatsApp.
-*   **Backup:** Si raccomanda di effettuare un backup dei file importanti prima di eseguire lo script, specialmente la prima volta, per sicurezza.
+## Important Notes:
+
+*   **Initial Confirmation:** The first time you run the script without arguments in the current folder, confirmation is required by typing `YES` to proceed with timestamp modification.
+*   **WhatsApp Images:** For WhatsApp images with the `IMG-DATA-WA*` pattern, the timestamp time will be set to `00:00` due to the lack of time information in the typical WhatsApp filename.
+*   **Backup:** It is recommended to back up important files before running the script, especially the first time, for safety.
+
+---
+
+## GitHub Description (short and concise):
+
+**`chronotouch.sh` - Bash Script to Organize Photo and Video Timestamps**
+
+Chronologically organize your photos and videos! This Bash script automates file timestamp modification based on dates extracted from filenames or EXIF metadata (when available). Supports images from cameras, WhatsApp, screenshots, and more. Includes dry-run mode for simulation and recursive folder handling. Requires `exiftool` for full EXIF functionality (optional).
+
+**[Link to GitHub repository (if applicable)]**  *(Add your GitHub repository link here if the script is hosted on GitHub)*
