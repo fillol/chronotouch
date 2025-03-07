@@ -1,60 +1,58 @@
 #!/bin/bash
 
-# Script che legge i nomi di file in una cartella, interpretandone la data (se presente),
-# e ne cambia il timestamp.
-# Da eseguire senza argomenti.
-# Sviluppato per foto e video con prefissi IMG, VID, PANO e screenshot.
-# Prova prima ad estrarre la data dai metadati EXIF (se disponibile e per IMG/VID),
-# altrimenti usa la data dal nome del file (se nel formato previsto).
+# Script that reads filenames in a folder, interpreting the date (if present), and changes their timestamp.
+# First tries to extract the date from EXIF metadata (if available and for IMG/VID), otherwise uses the date from the filename.
+# Developed for photos and videos with prefixes IMG, VID, PANO and screenshots.
 
-# VARIABILE PER LA MODALITÀ DRY-RUN (SIMULAZIONE)
+# VARIABLE FOR DRY-RUN (SIMULATION) MODE
 DRY_RUN=false
 
-# Funzione per estrarre la data dal nome del file
+# Function to extract the date from the filename
 extract_date_from_filename() {
     local filename="$1"
     local extracted_date_filename=""
 
-    if [[ "<span class="math-inline">filename" \=\~ ^IMG\(\[0\-9\]\{8\}\)\(\[\_\-\]?\)\(\[0\-9\]\{4\}\) \]\]; then \# IMG\-YYYYMMDD\-HHMM o IMG\_YYYYMMDD\_HHMM o IMGYYYYMMDDHHMM
-extracted\_date\_filename\="</span>{BASH_REMATCH[1]}${BASH_REMATCH[3]}"
-    elif [[ "<span class="math-inline">filename" \=\~ ^IMG\(\[0\-9\]\{8\}\)WA\[0\-9\]\+ \]\]; then   \# IMG\-YYYYMMDD\-WA\.\.\. \(whatsapp senza ora\)
-extracted\_date\_filename\="</span>{BASH_REMATCH[1]}0000" # Imposta l'ora a 00:00
-    elif [[ "<span class="math-inline">filename" \=\~ ^VID\(\[0\-9\]\{8\}\)\(\[\_\-\]?\)\(\[0\-9\]\{4\}\) \]\]; then \# VID\-YYYYMMDD\-HHMM o VID\_YYYYMMDD\_HHMM o VIDYYYYMMDDHHMM
-extracted\_date\_filename\="</span>{BASH_REMATCH[1]}${BASH_REMATCH[3]}"
-    elif [[ "<span class="math-inline">filename" \=\~ ^PANO\(\[0\-9\]\{8\}\)\(\[\_\-\]?\)\(\[0\-9\]\{4\}\) \]\]; then \# PANO\-YYYYMMDD\-HHMM o PANO\_YYYYMMDD\_HHMM o PANOYYYYMMDDHHMM
-extracted\_date\_filename\="</span>{BASH_REMATCH[1]}${BASH_REMATCH[3]}"
-    elif [[ "<span class="math-inline">filename" \=\~ ^Screenshot\_\(\[0\-9\]\{8\}\)\_\(\[0\-9\]\{6\}\) \]\]; then \# Screenshot\_YYYYMMDD\_HHMMSS
-extracted\_date\_filename\="</span>{BASH_REMATCH[1]}${BASH_REMATCH[2]:0:4}" #<ctrl3348>MMDDHHmm (tronca i secondi)
+    if [[ "$filename" =~ ^IMG([0-9]{8})([_-]?)([0-9]{4}) ]]; then # IMG-YYYYMMDD-HHMM or IMG_YYYYMMDD_HHMM or IMGYYYYMMDDHHMM
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[3]}"
+    elif [[ "$filename" =~ ^IMG([0-9]{8})WA[0-9]+ ]]; then   # IMG-YYYYMMDD-WA... (whatsapp no time)
+        extracted_date_filename="${BASH_REMATCH[1]}0000" # Set time to 00:00
+    elif [[ "$filename" =~ ^VID([0-9]{8})([_-]?)([0-9]{4}) ]]; then # VID-YYYYMMDD-HHMM or VID_YYYYMMDD_HHMM or VIDYYYYMMDDHHMM
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[3]}"
+    elif [[ "$filename" =~ ^PANO([0-9]{8})([_-]?)([0-9]{4}) ]]; then # PANO-YYYYMMDD-HHMM or PANO_YYYYMMDD_HHMM or PANOYYYYMMDDHHMM
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[3]}"
+    elif [[ "$filename" =~ ^Screenshot_([0-9]{8})_([0-9]{6}) ]]; then # Screenshot_YYYYMMDD_HHMMSS
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]:0:4}" #YYYYMMDDHHmm (truncates seconds)
     fi
 
-    if [[ -n "$extracted_date_filename" ]]; then # Verifica se la data è stata estratta
+    if [[ -n "$extracted_date_filename" ]]; then # Check if date was extracted
         if [[ ${#extracted_date_filename} -eq 8 ]] || [[ ${#extracted_date_filename} -eq 12 ]]; then
-            if [[ "<span class="math-inline">extracted\_date\_filename" \=\~ ^\[0\-9\]\+</span> ]]; then
+            if [[ "$extracted_date_filename" =~ ^[0-9]+$ ]]; then
                 echo "$extracted_date_filename"
-                return 0 # Data estratta con successo
+                return 0 # Date extracted successfully
             fi
         fi
     fi
-    return 1 # Estrazione data fallita o data non valida
+    return 1 # Date extraction failed or invalid date
 }
 
-# Funzione per estrarre la data dai metadati EXIF (invariata)
+# Function to extract the date from EXIF metadata (unchanged)
 extract_date_from_exif() {
-    local filename="<span class="math-inline">1"
-local extracted\_date\_exif\=</span>(exiftool -s -s -n -CreateDate "$filename" 2>/dev/null) # 2>/dev/null per sopprimere errori se exiftool non è installato o non trova la data
-    if [[ -n "<span class="math-inline">extracted\_date\_exif" \]\]; then
-\# Formato EXIF\:<ctrl3348\>\:MM\:DD HH\:MM\:SS oMMDDHHmm richiesto da touch \-t
-extracted\_date\_exif\=</span>(date -d "$exif_date_exif" +%Y%m%d%H%M 2>/dev/null) # 2>/dev/null per gestire errori di date non valide
-        if [[ -n "$extracted_date_exif" ]] && [[ "<span class="math-inline">extracted\_date\_exif" \=\~ ^\[0\-9\]\{12\}</span> ]]; then
+    local filename="$1"
+    local extracted_date_exif=$(exiftool -s -s -n -CreateDate "$filename" 2>/dev/null) # 2>/dev/null to suppress errors if exiftool is not installed or date not found
+    if [[ -n "$extracted_date_exif" ]]; then
+        # EXIF Format:YYYY:MM:DD HH:MM:SS orYYYY:MM:DD HH:MM:SS±HH:MM
+        # Convert to YYYYMMDDHHmm format required by touch -t
+        extracted_date_exif=$(date -d "$extracted_date_exif" +%Y%m%d%H%M 2>/dev/null) # 2>/dev/null to handle invalid date errors
+        if [[ -n "$extracted_date_exif" ]] && [[ "$extracted_date_exif" =~ ^[0-9]{12}$ ]]; then
             echo "$extracted_date_exif"
-            return 0 # Data EXIF estratta e convertita con successo
+            return 0 # EXIF date extracted and converted successfully
         fi
     fi
-    return 1 # Estrazione data EXIF fallita o data non valida
+    return 1 # EXIF date extraction failed or invalid date
 }
 
 
-# Gestione argomenti script e opzione dry-run (invariata)
+# Script argument handling and dry-run option (unchanged)
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -n|--dry-run)
@@ -62,105 +60,107 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            echo "Utilizzo: <span class="math-inline">0 \[\-n\|\-\-dry\-run\] \[cartella\]"
-echo ""
-echo "  Esegui lo script senza argomenti nella cartella corrente\."
-echo "  Opzioni\:"
-echo "    \-n, \-\-dry\-run   Esegue lo script in modalità simulazione, senza modificare i timestamp\."
-echo "    \-h, \-\-help      Mostra questo messaggio di aiuto\."
-echo "    \[cartella\]      Esegui lo script ricorsivamente sulla cartella specificata\."
-exit 0
-;;
-\*\)
-break \# Esci dal ciclo while per gestire la cartella \(se presente\)
-;;
-esac
+            echo "Usage: $0 [-n|--dry-run] [folder]"
+            echo ""
+            echo "  Execute the script without arguments in the current folder."
+            echo "  Options:"
+            echo "    -n, --dry-run   Runs the script in simulation mode, without modifying timestamps."
+            echo "    -h, --help      Shows this help message."
+            echo "    [folder]      Recursively run the script on the specified folder."
+            exit 0
+            ;;
+        *)
+            break # Exit while loop to handle folder (if present)
+            ;;
+    esac
 done
-case "</span>#" in
-    0 ) # Primo avvio (senza argomento cartella) (invariata)
-    echo "Sicuro di voler cambiare tutti i timestamp nella cartella corrente? Scrivi YES per confermare."
+
+
+case "$#" in
+    0 ) # First run (without folder argument) (unchanged)
+    echo "Are you sure you want to change all timestamps in the current folder? Type YES to confirm."
     if [[ "$DRY_RUN" == true ]]; then
-        echo "**ATTENZIONE:** Script in modalità DRY-RUN (simulazione). Nessun timestamp verrà modificato."
+        echo "**WARNING:** Script in DRY-RUN (simulation) mode. No timestamps will be modified."
     fi
     read -r answer
     if [[ "$answer" != "YES" ]]; then
-        echo "Operazione annullata."
+        echo "Operation cancelled."
         exit 1
     fi
     ;;
-    1 ) # Avvio ricorsivo con sottocartella come argomento (invariata)
+    1 ) # Recursive run with subfolder as argument (unchanged)
     if [[ ! -d "$1" ]]; then
-        echo "Errore: '$1' non è una cartella valida."
+        echo "Error: '$1' is not a valid folder."
         exit 1
     else
-        cd "$1" || { echo "Errore: impossibile accedere a '$1'"; exit 1; } # Uscita in caso di errore cd
+        cd "$1" || { echo "Error: cannot access '$1'"; exit 1; } # Exit on cd error
     fi
     ;;
-    *) # Errore numero argomenti (dopo gestione opzioni) (invariata)
-    echo "Utilizzo: $0 [-n|--dry-run] [cartella]"
-    echo "Esegui '$0 --help' per maggiori informazioni."
+    *) # Argument number error (after option handling) (unchanged)
+    echo "Usage: $0 [-n|--dry-run] [folder]"
+    echo "Run '$0 --help' for more information."
     exit 1
     ;;
 esac
 
-# Controllo presenza exiftool e avviso utente (una sola volta all'inizio) (invariata)
+# Check for exiftool presence and warn user (once at the beginning) (unchanged)
 if ! command -v exiftool &> /dev/null; then
-    echo "Avviso: exiftool non è installato. L'estrazione della data dai metadati EXIF non sarà disponibile."
-    echo "Installa exiftool per una funzionalità completa (es: sudo apt install libimage-exiftool-perl)."
+    echo "Warning: exiftool is not installed. EXIF metadata date extraction will not be available."
+    echo "Install exiftool for full functionality (e.g., sudo apt install libimage-exiftool-perl)."
 fi
 
 
-# Ciclo su tutti i file e cartelle nella cartella corrente (invariata)
-find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while loop per gestire nomi file con spazi e caratteri speciali
+# Loop through all files and folders in the current folder (unchanged)
+find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while loop to handle filenames with spaces and special characters
     if [[ -d "$item" ]]; then
-        if [[ "$item" != "." ]]; then # Evita di richiamare ricorsivamente la cartella corrente "."
-            "$0" "$item" # Avvia lo script ricorsivamente per le sottocartelle
+        if [[ "$item" != "." ]]; then # Avoid recursively calling the current folder "."
+            "$0" "$item" # Recursively run the script for subfolders
         fi
-    elif [[ -f "<span class="math-inline">item" \]\]; then
-filename\=</span>(basename "<span class="math-inline">item"\) \# Ottieni solo il nome del file, non il percorso
-file\_prefix\=</span>(echo "$filename" | cut -c 1-4) # Prefisso per identificare tipo file
+    elif [[ -f "$item" ]]; then
+        filename=$(basename "$item") # Get only the filename, not the path
+        file_prefix=$(echo "$filename" | cut -c 1-4) # Prefix to identify file type
 
-        extracted_date="" # Inizializza la variabile data estratta
+        extracted_date="" # Initialize extracted date variable
 
         if [[ "$file_prefix" == "IMG" ]] || [[ "$file_prefix" == "VID" ]]; then
-            # Prova prima EXIF per IMG e VID
-            if extract_date_from_exif "<span class="math-inline">filename"; then
-extracted\_date\=</span>(extract_date_from_exif "$filename")
-                echo "Data EXIF estratta da '$filename': $extracted_date"
+            # Try EXIF first for IMG and VID
+            if extract_date_from_exif "$filename"; then
+                extracted_date=$(extract_date_from_exif "$filename")
+                echo "EXIF date extracted from '$filename': $extracted_date"
             else
-                if extract_date_from_filename "<span class="math-inline">filename"; then
-extracted\_date\=</span>(extract_date_from_filename "$filename")
-                    echo "Data dal nome file estratta da '$filename': $extracted_date (EXIF non disponibile)"
+                if extract_date_from_filename "$filename"; then
+                    extracted_date=$(extract_date_from_filename "$filename")
+                    echo "Date from filename extracted from '$filename': $extracted_date (EXIF not available)"
                 else
-                    echo "Nessuna data trovata per '$filename'."
+                    echo "No date found for '$filename'."
                 fi
             fi
-        elif [[ "$file_prefix" == "PANO" ]] || [[ "$filename" =~ ^Screenshot_ ]]; then # PANO o Screenshot: solo nome file
-            if extract_date_from_filename "<span class="math-inline">filename"; then
-extracted\_date\=</span>(extract_date_from_filename "$filename")
-                echo "Data dal nome file estratta da '$filename': $extracted_date"
+        elif [[ "$file_prefix" == "PANO" ]] || [[ "$filename" =~ ^Screenshot_ ]]; then # PANO or Screenshot: filename only
+            if extract_date_from_filename "$filename"; then
+                extracted_date=$(extract_date_from_filename "$filename")
+                echo "Date from filename extracted from '$filename': $extracted_date"
             else
-                echo "Nessuna data trovata per '$filename'."
+                echo "No date found for '$filename'."
             fi
         else
-            echo "File '$filename' ignorato (prefisso non riconosciuto)."
+            echo "File '$filename' ignored (unrecognized prefix)."
         fi
 
-        if [[ -n "$extracted_date" ]]; then # Se è stata estratta una data valida
-            if [[ "$DRY_RUN" == false ]]; then # Se NON è in modalità dry-run, modifica il timestamp
-                if ! touch -t "$extracted_date" "$item"; then # Controllo errore touch
-                    echo "Errore: impossibile cambiare timestamp di '$item'."
+        if [[ -n "$extracted_date" ]]; then # If a valid date was extracted
+            if [[ "$DRY_RUN" == false ]]; then # If NOT in dry-run mode, modify timestamp
+                if ! touch -t "$extracted_date" "$item"; then # Error check for touch
+                    echo "Error: cannot change timestamp of '$item'."
                 else
-                    echo "Timestamp di '$item' cambiato con data: $extracted_date"
+                    echo "Timestamp of '$item' changed to date: $extracted_date"
                 fi
-            else # Se è in modalità dry-run, simula la modifica
-                echo "[SIMULAZIONE] Timestamp di '$item' *sarebbe* cambiato con data: $extracted_date"
+            else # If in dry-run mode, simulate modification
+                echo "[SIMULATION] Timestamp of '$item' *would be* changed to date: $extracted_date"
             fi
         fi
     fi
 done
 
-echo "Script completato."
+echo "Script completed."
 if [[ "$DRY_RUN" == true ]]; then
-    echo "**Modalità DRY-RUN:** Nessun timestamp è stato effettivamente modificato."
+    echo "**DRY-RUN Mode:** No timestamps were actually modified."
 fi
