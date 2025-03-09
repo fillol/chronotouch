@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script that reads filenames in a folder, interpreting the date (if present), and changes their timestamp.
-# First tries to extract the date from EXIF metadata (if available and for IMG/VID/PANO/Screenshot/Schermata), otherwise uses the date from the filename.
+# First tries to extract the date from EXIF metadata, otherwise uses the date from the filename.
 # Developed for photos and videos with prefixes IMG, VID, PANO and screenshots.
 
 # VARIABLE FOR DRY-RUN (SIMULATION) MODE
@@ -13,97 +13,87 @@ VERBOSE=false
 # VARIABLE FOR INTERACTIVE MODE
 INTERACTIVE=false
 
+verbose_log() {
+    if [[ "$VERBOSE" == true ]]; then
+        echo "VERBOSE: $@"
+    fi
+}
+
 # Function to extract the date from the filename
 extract_date_from_filename() {
     local filename="$1"
     local extracted_date_filename=""
 
+    verbose_log "Entering extract_date_from_filename() for file: '$filename'"
+
     if [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # IMG-YYYYMMDD-HHMM or IMG_YYYYMMDD_HHMM or IMGYYYYMMDDHHMM or IMG-YYYYMMDDHHMM or IMG_YYYYMMDDHHMM
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
-        if [[ "$VERBOSE" == true ]]; then
-            echo "VERBOSE: Filename pattern 'IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched for '$filename'. Extracted date candidate: $extracted_date_filename"
-        fi
+        verbose_log "Filename pattern 'IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
     elif [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})WA[0-9]+ ]]; then    # IMG-YYYYMMDD-WA... or IMG_YYYYMMDD-WA... (whatsapp no time)
         extracted_date_filename="${BASH_REMATCH[2]}0000" # Set time to 00:00
-        if [[ "$VERBOSE" == true ]]; then
-            echo "VERBOSE: Filename pattern 'IMG([_-]?)([0-9]{8})WA[0-9]+' matched for '$filename'. Extracted date candidate: $extracted_date_filename"
-        fi
+        verbose_log "Filename pattern 'IMG([_-]?)([0-9]{8})WA[0-9]+' matched. Extracted date candidate: $extracted_date_filename"
     elif [[ "$filename" =~ ^VID([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # VID-YYYYMMDD-HHMM or VID_YYYYMMDD_HHMM or VIDYYYYMMDDHHMM or VID-YYYYMMDDHHMM or VID_YYYYMMDDHHMM
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
-        if [[ "$VERBOSE" == true ]]; then
-            echo "VERBOSE: Filename pattern 'VID([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched for '$filename'. Extracted date candidate: $extracted_date_filename"
-        fi
+        verbose_log "Filename pattern 'VID([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
     elif [[ "$filename" =~ ^PANO([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # PANO-YYYYMMDD-HHMM or PANO_YYYYMMDD_HHMM or PANOYYYYMMDDHHMM or PANO-YYYYMMDDHHMM or PANO_YYYYMMDDHHMM
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
-        if [[ "$VERBOSE" == true ]]; then
-            echo "VERBOSE: Filename pattern 'PANO([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched for '$filename'. Extracted date candidate: $extracted_date_filename"
-        fi
+        verbose_log "Filename pattern 'PANO([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
     elif [[ "$filename" =~ ^Screenshot([_-]?)([0-9]{8})([_-]?)([0-9]{6}) ]]; then # Screenshot_YYYYMMDD_HHMMSS OR Screenshot-YYYYMMDD-HHMMSS
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]:0:4}" #YYYYMMDDHHmm (truncates seconds)
-        if [[ "$VERBOSE" == true ]]; then
-            echo "VERBOSE: Filename pattern 'Screenshot([_-]?)([0-9]{8})([_-]?)([0-9]{6})' matched for '$filename'. Extracted date candidate: $extracted_date_filename"
-        fi
+        verbose_log "Filename pattern 'Screenshot([_-]?)([0-9]{8})([_-]?)([0-9]{6})' matched. Extracted date candidate: $extracted_date_filename"
     elif [[ "$filename" =~ ^Schermata([_-]?)([0-9]{8})([_-]?)([0-9]{6}) ]]; then # Schermata_YYYYMMDD_HHMMSS OR Schermata-YYYYMMDD-HHMMSS (Italian Screenshot)
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]:0:4}" #YYYYMMDDHHmm (truncates seconds)
-        if [[ "$VERBOSE" == true ]]; then
-            echo "VERBOSE: Filename pattern 'Schermata([_-]?)([0-9]{8})([_-]?)([0-9]{6})' matched for '$filename'. Extracted date candidate: $extracted_date_filename"
-        fi
+        verbose_log "Filename pattern 'Schermata([_-]?)([0-9]{8})([_-]?)([0-9]{6})' matched. Extracted date candidate: $extracted_date_filename"
     fi
 
     if [[ -n "$extracted_date_filename" ]]; then # Check if date was extracted
         if [[ ${#extracted_date_filename} -eq 8 ]] || [[ ${#extracted_date_filename} -eq 12 ]]; then
             if [[ "$extracted_date_filename" =~ ^[0-9]+$ ]]; then
                 echo "$extracted_date_filename"
-                if [[ "$VERBOSE" == true ]]; then
-                    echo "VERBOSE: Date '$extracted_date_filename' is valid."
-                fi
+                verbose_log "Date '$extracted_date_filename' is valid."
+                verbose_log "Exiting extract_date_from_filename() with success."
                 return 0 # Date extracted successfully
             else
-                if [[ "$VERBOSE" == true ]]; then
-                    echo "VERBOSE: Date '$extracted_date_filename' is not numeric."
-                fi
+                verbose_log "Date '$extracted_date_filename' is not numeric."
             fi
         else
-            if [[ "$VERBOSE" == true ]]; then
-                echo "VERBOSE: Date '$extracted_date_filename' length is invalid (not 8 or 12)."
-            fi
+            verbose_log "Date '$extracted_date_filename' length is invalid (not 8 or 12)."
         fi
     fi
-    if [[ "$VERBOSE" == true ]]; then
-        echo "VERBOSE: Date extraction from filename failed for '$filename'."
-    fi
+    verbose_log "Date extraction from filename failed for '$filename'."
+    verbose_log "Exiting extract_date_from_filename() with failure."
     return 1 # Date extraction failed or invalid date
 }
 
 # Function to extract the date from EXIF metadata
 extract_date_from_exif() {
     local filename="$1"
+    verbose_log "Entering extract_date_from_exif() for file: '$filename'"
+
     if ! command -v exiftool &> /dev/null; then
-        if [[ "$VERBOSE" == true ]]; then
-            echo "VERBOSE: exiftool is not installed, skipping EXIF extraction."
-        fi
+        verbose_log "exiftool is not installed, skipping EXIF extraction."
+        verbose_log "Exiting extract_date_from_exif() because exiftool is missing."
         return 1
     fi
-    local extracted_date_exif=$(exiftool -s -s -n -CreateDate "$filename" 2>/dev/null) # 2>/dev/null to suppress errors if exiftool is not installed or date not found
-    if [[ -n "$extracted_date_exif" ]]; then
-        # EXIF Format:YYYY:MM:DD HH:MM:SS orYYYY:MM:DD HH:MM:SS±HH:MM
-        # Convert to<\ctrl3348>MMDDHHmm format required by touch -t
-        extracted_date_exif=$(date -d "$extracted_date_exif" +%Y%m%d%H%M 2>/dev/null) # 2>/dev/null to handle invalid date errors
+
+    local exif_output
+    exif_output=$(exiftool -s -s -n -CreateDate "$filename" 2>/dev/null)
+
+    if [[ -n "$exif_output" ]]; then
+        verbose_log "Raw EXIF date extracted: '$exif_output'"
+        local extracted_date_exif=$(date -d "$exif_output" +%Y%m%d%H%M 2>/dev/null)
+
         if [[ -n "$extracted_date_exif" ]] && [[ "$extracted_date_exif" =~ ^[0-9]{12}$ ]]; then
             echo "$extracted_date_exif"
-            if [[ "$VERBOSE" == true ]]; then
-                echo "VERBOSE: EXIF date '$extracted_date_exif' extracted and converted successfully from '$filename'."
-            fi
+            verbose_log "EXIF date '$extracted_date_exif' extracted and converted successfully."
+            verbose_log "Exiting extract_date_from_exif() with success."
             return 0 # EXIF date extracted and converted successfully
         else
-            if [[ "$VERBOSE" == true ]]; then
-                echo "VERBOSE: EXIF date conversion failed or invalid format for '$filename'."
-            fi
+            verbose_log "EXIF date conversion failed or invalid format."
         fi
     fi
-    if [[ "$VERBOSE" == true ]]; then
-        echo "VERBOSE: EXIF date extraction failed for '$filename'."
-    fi
+    verbose_log "EXIF date extraction failed."
+    verbose_log "Exiting extract_date_from_exif() with failure."
     return 1 # EXIF date extraction failed or invalid date
 }
 
@@ -128,11 +118,11 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "  Execute the script without arguments in the current folder."
             echo "  Options:"
-            echo "    -n, --dry-run    Runs the script in simulation mode, without modifying timestamps."
-            echo "    -v, --verbose    Enables verbose output for debugging."
+            echo "    -n, --dry-run     Runs the script in simulation mode, without modifying timestamps."
+            echo "    -v, --verbose     Enables verbose output for debugging."
             echo "    -i, --interactive  Enables interactive mode, asking for confirmation before each change."
-            echo "    -h, --help       Shows this help message."
-            echo "    [folder]         Recursively run the script on the specified folder."
+            echo "    -h, --help        Shows this help message."
+            echo "    [folder]          Recursively run the script on the specified folder."
             exit 0
             ;;
         *)
@@ -189,25 +179,21 @@ find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while
             "$0" "$item" # Recursively run the script for subfolders
         fi
     elif [[ -f "$item" ]]; then
-        filename=$(basename "$item") # Get only the filename, not the path
+        filename=$(basename "$item")
         file_prefix=$(echo "$filename" | cut -c 1-10) # Prefix to identify file type (increased length)
 
-        extracted_date="" # Initialize extracted date variable
+        extracted_date=""
 
         if [[ "$file_prefix" == "IMG" ]] || [[ "$file_prefix" == "VID" ]] || [[ "$file_prefix" == "PANO" ]] || [[ "$file_prefix" == "Screenshot" ]] || [[ "$file_prefix" == "Schermata" ]]; then # MODIFICA: PANO INCLUDED HERE, Schermata_ -> Schermata
             # Try EXIF first for IMG, VID, PANO, Screenshot and Schermata
             if extract_date_from_exif "$filename"; then
                 extracted_date=$(extract_date_from_exif "$filename")
-                if [[ "$VERBOSE" == true ]]; then
-                    echo "VERBOSE: EXIF date extraction was successful for '$filename'."
-                fi
+                verbose_log "EXIF date extraction was successful for '$filename'."
                 echo "EXIF date extracted from '$filename': $extracted_date"
             else
                 if extract_date_from_filename "$filename"; then
                     extracted_date=$(extract_date_from_filename "$filename")
-                    if [[ "$VERBOSE" == true ]]; then
-                        echo "VERBOSE: Date from filename extraction was successful for '$filename'."
-                    fi
+                    verbose_log "Date from filename extraction was successful for '$filename'."
                     echo "Date from filename extracted from '$filename': $extracted_date (EXIF not available)"
                 else
                     echo "No date found for '$filename'."
@@ -225,13 +211,12 @@ find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while
                         echo "Timestamp of '$filename' NOT changed."
                         continue # Skip to the next file
                     fi
-                    fi
-                if ! touch -t "$extracted_date" "$item" 2> error.log; then # Error check for touch
-                    error_message=$(cat error.log) # Cattura il messaggio da error.log
-                    echo "Error: cannot change timestamp of '$item'. Error details: $error_message"
-                    rm error.log # Pulisce il file di log temporaneo
+                fi
+                if ! touch -t "$extracted_date" "$item"; then # Error check for touch
+                    echo "Error: cannot change timestamp of '$item'." >&2
                 else
                     echo "Timestamp of '$item' changed to date: $extracted_date"
+                    verbose_log "Timestamp of '$item' changed to: $extracted_date"
                 fi
             else # If in dry-run mode, simulate modification
                 echo "[SIMULATION] Timestamp of '$item' *would be* changed to date: $extracted_date"
