@@ -26,11 +26,11 @@ The script recognizes the following filename formats for date extraction. It wil
     *   `IMG_YYYYMMDD_HHMM`
     *   `IMG-YYYYMMDDHHMM`
     *   `IMG_YYYYMMDDHHMM`
-    *   `IMG-WA[0-9]+` (WhatsApp images, time set to 00:00)
-    *   `IMG_WA[0-9]+` (WhatsApp images, time set to 00:00)
-    *   `IMGWA[0-9]+` (WhatsApp images, time set to 00:00)
-    *   `IMG-YYYYMMDD-WA[0-9]+` (WhatsApp images with date, time set to 00:00)
-    *   `IMG_YYYYMMDD_WA[0-9]+` (WhatsApp images with date, time set to 00:00)
+    *   `IMG-WA[0-9]+` (WhatsApp images, time generated from timestamp)
+    *   `IMG_WA[0-9]+` (WhatsApp images, time generated from timestamp)
+    *   `IMGWA[0-9]+` (WhatsApp images, time generated from timestamp)
+    *   `IMG-YYYYMMDD-WA[0-9]+` (WhatsApp images, time generated from timestamp)
+    *   `IMG_YYYYMMDD_WA[0-9]+` (WhatsApp images, time generated from timestamp)
     *   *(VID and PANO prefixes follow the same formats as IMG)*
 
 *   **Screenshot and Schermata Prefixes:**
