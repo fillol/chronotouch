@@ -19,6 +19,14 @@ verbose_log() {
     fi
 }
 
+# Function to convert WhatsApp counter to time
+convert_whatsapp_counter_to_time() {
+    local counter="$1"
+    local hours=$(printf "%02d" $((counter / 60)))
+    local minutes=$(printf "%02d" $((counter % 60)))
+    echo "${hours}${minutes}"
+}
+
 # Function to extract the date from the filename
 extract_date_from_filename() {
     local filename="$1"
@@ -29,9 +37,11 @@ extract_date_from_filename() {
     if [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # IMG-YYYYMMDD-HHMM or IMG_YYYYMMDD_HHMM or IMGYYYYMMDDHHMM or IMG-YYYYMMDDHHMM or IMG_YYYYMMDDHHMM
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
         verbose_log "Filename pattern 'IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
-    elif [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})WA[0-9]+ ]]; then    # IMG-YYYYMMDD-WA... or IMG_YYYYMMDD-WA... (whatsapp no time)
-        extracted_date_filename="${BASH_REMATCH[2]}0000" # Set time to 00:00
-        verbose_log "Filename pattern 'IMG([_-]?)([0-9]{8})WA[0-9]+' matched. Extracted date candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})WA([0-9]+) ]]; then    # IMG-YYYYMMDD-WA... or IMG_YYYYMMDD-WA... (whatsapp with counter)
+        local counter="${BASH_REMATCH[3]}"
+        local time=$(convert_whatsapp_counter_to_time "$counter")
+        extracted_date_filename="${BASH_REMATCH[2]}${time}"
+        verbose_log "Filename pattern 'IMG([_-]?)([0-9]{8})WA([0-9]+)' matched. Extracted date candidate: $extracted_date_filename"
     elif [[ "$filename" =~ ^VID([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # VID-YYYYMMDD-HHMM or VID_YYYYMMDD_HHMM or VIDYYYYMMDDHHMM or VID-YYYYMMDDHHMM or VID_YYYYMMDDHHMM
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
         verbose_log "Filename pattern 'VID([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
@@ -97,7 +107,6 @@ extract_date_from_exif() {
     return 1 # EXIF date extraction failed or invalid date
 }
 
-
 # Script argument handling and dry-run option
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -130,7 +139,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
 
 case "$#" in
     0 ) # First run (without folder argument)
@@ -171,7 +179,6 @@ if ! command -v exiftool &> /dev/null; then
     echo "Install exiftool for full functionality (e.g., sudo apt install libimage-exiftool-perl)."
 fi
 
-
 # Loop through all files and folders in the current folder
 find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while loop to handle filenames with spaces and special characters
     if [[ -d "$item" ]]; then
@@ -184,7 +191,7 @@ find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while
 
         extracted_date=""
 
-        if [[ "$file_prefix" == "IMG" ]] || [[ "$file_prefix" == "VID" ]] || [[ "$file_prefix" == "PANO" ]] || [[ "$file_prefix" == "Screenshot" ]] || [[ "$file_prefix" == "Schermata" ]]; then # MODIFICA: PANO INCLUDED HERE, Schermata_ -> Schermata
+        if [[ "$file_prefix" == "IMG" ]] || [[ "$file_prefix" == "VID" ]] || [[ "$file_prefix" == "PANO" ]] || [[ "$file_prefix" == "Screenshot" ]] || [[ "$file_prefix" == "Schermata" ]]; then
             # Try EXIF first for IMG, VID, PANO, Screenshot and Schermata
             if extract_date_from_exif "$filename"; then
                 extracted_date=$(extract_date_from_exif "$filename")
