@@ -42,7 +42,7 @@ The script recognizes the following filename formats for date extraction. It wil
     *   `Schermata_YYYYMMDDHHMMSS`
     *   *(Both "Screenshot" and "Schermata" support underscore `_` or hyphen `-` as separators after the prefix and between date and time)*
 
-**Note:**  For WhatsApp images (`IMG-WA...`, `IMG_WA...`, `IMGWA...` and similar for VID and PANO), the time is set to `00:00` as WhatsApp filenames in this format do not include time information.
+**Note:**  For WhatsApp images (`IMG-WA...`, `IMG_WA...`, `IMGWA...` and similar for VID and PANO), a pseudo-time is generated progressively basing on the WA-counter, ensuring correct chronological order.
 
 ## Usage
 
