@@ -1,16 +1,7 @@
 #!/bin/bash
 
-# Script that reads filenames in a folder, interpreting the date (if present), and changes their timestamp.
-# First tries to extract the date from EXIF metadata, otherwise uses the date from the filename.
-# Developed for photos and videos with prefixes IMG, VID, PANO and screenshots.
-
-# VARIABLE FOR DRY-RUN (SIMULATION) MODE
 DRY_RUN=false
-
-# VARIABLE FOR VERBOSE LOGGING
 VERBOSE=false
-
-# VARIABLE FOR INTERACTIVE MODE
 INTERACTIVE=false
 
 verbose_log() {
@@ -19,220 +10,223 @@ verbose_log() {
     fi
 }
 
-# Function to convert WhatsApp counter to time
 convert_whatsapp_counter_to_time() {
-    local counter="$1"
-    local hours=$(printf "%02d" $((counter / 60)))
-    local minutes=$(printf "%02d" $((counter % 60)))
+    local counter_str="$1"
+    local counter=$((10#$counter_str))
+    local hours minutes
+    hours=$(printf "%02d" $((counter / 60)))
+    minutes=$(printf "%02d" $((counter % 60)))
     echo "${hours}${minutes}"
 }
 
-# Function to extract the date from the filename
 extract_date_from_filename() {
     local filename="$1"
     local extracted_date_filename=""
 
     verbose_log "Entering extract_date_from_filename() for file: '$filename'"
 
-    if [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # IMG-YYYYMMDD-HHMM or IMG_YYYYMMDD_HHMM or IMGYYYYMMDDHHMM or IMG-YYYYMMDDHHMM or IMG_YYYYMMDDHHMM
-        extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
-        verbose_log "Filename pattern 'IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
-    elif [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})WA([0-9]+) ]]; then    # IMG-YYYYMMDD-WA... or IMG_YYYYMMDD-WA... (whatsapp with counter)
-        local counter="${BASH_REMATCH[3]}"
+    if [[ "$filename" =~ ^Screenshot_([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]}${BASH_REMATCH[3]}${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        verbose_log "Pattern 'Screenshot_YYYYMMDD-hhmmss' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})([_-]?)WA([0-9]+) ]]; then
+        local counter="${BASH_REMATCH[4]}"
         local time=$(convert_whatsapp_counter_to_time "$counter")
         extracted_date_filename="${BASH_REMATCH[2]}${time}"
-        verbose_log "Filename pattern 'IMG([_-]?)([0-9]{8})WA([0-9]+)' matched. Extracted date candidate: $extracted_date_filename"
-    elif [[ "$filename" =~ ^VID([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # VID-YYYYMMDD-HHMM or VID_YYYYMMDD_HHMM or VIDYYYYMMDDHHMM or VID-YYYYMMDDHHMM or VID_YYYYMMDDHHMM
+        verbose_log "Pattern 'IMG-YYYYMMDD-WAcounter' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})_([0-9]{6}) ]]; then
+        extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[3]:0:4}"
+        verbose_log "Pattern 'IMG_YYYYMMDD_hhmmss' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^PXL_([0-9]{8})_([0-9]{6}) ]]; then
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]:0:4}"
+        verbose_log "Pattern 'PXL_YYYYMMDD_hhmmss' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^IMG([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
-        verbose_log "Filename pattern 'VID([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
-    elif [[ "$filename" =~ ^PANO([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then # PANO-YYYYMMDD-HHMM or PANO_YYYYMMDD_HHMM or PANOYYYYMMDDHHMM or PANO-YYYYMMDDHHMM or PANO_YYYYMMDDHHMM
+        verbose_log "Pattern 'IMG-YYYYMMDD-HHMM' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^VID([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then
         extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
-        verbose_log "Filename pattern 'PANO([_-]?)([0-9]{8})([_-]?)([0-9]{4})' matched. Extracted date candidate: $extracted_date_filename"
-    elif [[ "$filename" =~ ^Screenshot([_-]?)([0-9]{8})([_-]?)([0-9]{6}) ]]; then # Screenshot_YYYYMMDD_HHMMSS OR Screenshot-YYYYMMDD-HHMMSS
-        extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]:0:4}" #YYYYMMDDHHmm (truncates seconds)
-        verbose_log "Filename pattern 'Screenshot([_-]?)([0-9]{8})([_-]?)([0-9]{6})' matched. Extracted date candidate: $extracted_date_filename"
-    elif [[ "$filename" =~ ^Schermata([_-]?)([0-9]{8})([_-]?)([0-9]{6}) ]]; then # Schermata_YYYYMMDD_HHMMSS OR Schermata-YYYYMMDD-HHMMSS (Italian Screenshot)
-        extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]:0:4}" #YYYYMMDDHHmm (truncates seconds)
-        verbose_log "Filename pattern 'Schermata([_-]?)([0-9]{8})([_-]?)([0-9]{6})' matched. Extracted date candidate: $extracted_date_filename"
+        verbose_log "Pattern 'VID-YYYYMMDD-HHMM' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^PANO([_-]?)([0-9]{8})([_-]?)([0-9]{4}) ]]; then
+        extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]}"
+        verbose_log "Pattern 'PANO-YYYYMMDD-HHMM' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^Screenshot([_-]?)([0-9]{8})([_-]?)([0-9]{6}) && ! "$filename" =~ ^Screenshot_([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+        extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]:0:4}"
+        verbose_log "Pattern 'Screenshot-YYYYMMDD-hhmmss' (generico) matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^Schermata([_-]?)([0-9]{8})([_-]?)([0-9]{6}) ]]; then
+        extracted_date_filename="${BASH_REMATCH[2]}${BASH_REMATCH[4]:0:4}"
+        verbose_log "Pattern 'Schermata-YYYYMMDD-hhmmss' matched. Candidate: $extracted_date_filename"
+    elif [[ "$filename" =~ ^([0-9]{8})_([0-9]{6}) ]]; then
+        extracted_date_filename="${BASH_REMATCH[1]}${BASH_REMATCH[2]:0:4}"
+        verbose_log "Pattern 'YYYYMMDD_hhmmss' matched. Candidate: $extracted_date_filename"
     fi
 
-    if [[ -n "$extracted_date_filename" ]]; then # Check if date was extracted
-        if [[ ${#extracted_date_filename} -eq 8 ]] || [[ ${#extracted_date_filename} -eq 12 ]]; then
-            if [[ "$extracted_date_filename" =~ ^[0-9]+$ ]]; then
-                echo "$extracted_date_filename"
-                verbose_log "Date '$extracted_date_filename' is valid."
-                verbose_log "Exiting extract_date_from_filename() with success."
-                return 0 # Date extracted successfully
-            else
-                verbose_log "Date '$extracted_date_filename' is not numeric."
-            fi
+    if [[ -n "$extracted_date_filename" ]]; then
+        if [[ ${#extracted_date_filename} -eq 12 ]] && [[ "$extracted_date_filename" =~ ^[0-9]+$ ]]; then
+            echo "$extracted_date_filename"
+            verbose_log "Date '$extracted_date_filename' is valid. Exiting with success."
+            return 0
         else
-            verbose_log "Date '$extracted_date_filename' length is invalid (not 8 or 12)."
+            verbose_log "Date '$extracted_date_filename' is invalid (length ${#extracted_date_filename} or not numeric)."
         fi
     fi
-    verbose_log "Date extraction from filename failed for '$filename'."
-    verbose_log "Exiting extract_date_from_filename() with failure."
-    return 1 # Date extraction failed or invalid date
+    verbose_log "No filename pattern matched or invalid date. Exiting with failure."
+    return 1
 }
 
-# Function to extract the date from EXIF metadata
 extract_date_from_exif() {
     local filename="$1"
     verbose_log "Entering extract_date_from_exif() for file: '$filename'"
 
     if ! command -v exiftool &> /dev/null; then
-        verbose_log "exiftool is not installed, skipping EXIF extraction."
-        verbose_log "Exiting extract_date_from_exif() because exiftool is missing."
+        verbose_log "exiftool not found. Exiting."
         return 1
     fi
 
-    local exif_output
-    exif_output=$(exiftool -s -s -n -CreateDate "$filename" 2>/dev/null)
-
-    if [[ -n "$exif_output" ]]; then
-        verbose_log "Raw EXIF date extracted: '$exif_output'"
-        local extracted_date_exif=$(date -d "$exif_output" +%Y%m%d%H%M 2>/dev/null)
-
+    local extracted_date_exif
+    for tag in "CreateDate" "DateTimeOriginal" "ModifyDate"; do
+        verbose_log "Trying EXIF tag: $tag"
+        extracted_date_exif=$(exiftool -q -q -d '%Y%m%d%H%M' "-${tag}" -S -n "$filename" 2>/dev/null)
         if [[ -n "$extracted_date_exif" ]] && [[ "$extracted_date_exif" =~ ^[0-9]{12}$ ]]; then
             echo "$extracted_date_exif"
-            verbose_log "EXIF date '$extracted_date_exif' extracted and converted successfully."
-            verbose_log "Exiting extract_date_from_exif() with success."
-            return 0 # EXIF date extracted and converted successfully
+            verbose_log "EXIF $tag '$extracted_date_exif' extracted. Exiting with success."
+            return 0
         else
-            verbose_log "EXIF date conversion failed or invalid format."
+            verbose_log "EXIF $tag failed or invalid (Raw: '$extracted_date_exif')."
         fi
-    fi
-    verbose_log "EXIF date extraction failed."
-    verbose_log "Exiting extract_date_from_exif() with failure."
-    return 1 # EXIF date extraction failed or invalid date
+    done
+    
+    verbose_log "All attempted EXIF tags failed. Exiting with failure."
+    return 1
 }
 
-# Script argument handling and dry-run option
+declare -a SCRIPT_OPTS_RECURSIVE=()
+FOLDER_ARG=""
+INITIAL_CALL=true
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -n|--dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        -v|--verbose)
-            VERBOSE=true
-            shift
-            ;;
-        -i|--interactive)
-            INTERACTIVE=true
-            shift
-            ;;
+        -n|--dry-run) DRY_RUN=true; SCRIPT_OPTS_RECURSIVE+=("-n"); shift ;;
+        -v|--verbose) VERBOSE=true; SCRIPT_OPTS_RECURSIVE+=("-v"); shift ;;
+        -i|--interactive) INTERACTIVE=true; SCRIPT_OPTS_RECURSIVE+=("-i"); shift ;;
         --help|-h)
             echo "Usage: $0 [-n|--dry-run] [-v|--verbose] [-i|--interactive] [folder]"
-            echo ""
-            echo "  Execute the script without arguments in the current folder."
+            echo "  Processes files in the current folder or the specified [folder]."
             echo "  Options:"
-            echo "    -n, --dry-run     Runs the script in simulation mode, without modifying timestamps."
-            echo "    -v, --verbose     Enables verbose output for debugging."
-            echo "    -i, --interactive  Enables interactive mode, asking for confirmation before each change."
-            echo "    -h, --help        Shows this help message."
-            echo "    [folder]          Recursively run the script on the specified folder."
+            echo "    -n, --dry-run     Simulation mode, no changes made."
+            echo "    -v, --verbose     Enable verbose output."
+            echo "    -i, --interactive  Prompt before each change."
+            echo "    -h, --help        Show this help message."
             exit 0
             ;;
         *)
-            break # Exit while loop to handle folder (if present)
-            ;;
+            if [[ -z "$FOLDER_ARG" ]]; then FOLDER_ARG="$1"; else
+                echo "Error: Too many folder arguments." >&2; exit 1;
+            fi; shift ;;
     esac
 done
 
-case "$#" in
-    0 ) # First run (without folder argument)
-    echo "Are you sure you want to change all timestamps in the current folder? Type YES to confirm."
-    if [[ "$DRY_RUN" == true ]]; then
-        echo "**WARNING:** Script in DRY-RUN (simulation) mode. No timestamps will be modified."
+TARGET_FOLDER="."
+if [[ -n "$FOLDER_ARG" ]]; then
+    if [[ ! -d "$FOLDER_ARG" ]]; then
+        echo "Error: '$FOLDER_ARG' is not a valid folder." >&2; exit 1
     fi
-    if [[ "$VERBOSE" == true ]]; then
-        echo "**VERBOSE:** Verbose output is enabled."
-    fi
-    if [[ "$INTERACTIVE" == true ]]; then
-        echo "**INTERACTIVE:** Interactive mode is enabled. You will be prompted for each file."
-    fi
-    read -r answer
-    if [[ "$answer" != "YES" ]]; then
-        echo "Operation cancelled."
-        exit 1
-    fi
-    ;;
-    1 ) # Recursive run with subfolder as argument
-    if [[ ! -d "$1" ]]; then
-        echo "Error: '$1' is not a valid folder."
-        exit 1
-    else
-        cd "$1" || { echo "Error: cannot access '$1'"; exit 1; } # Exit on cd error
-    fi
-    ;;
-    *) # Argument number error (after option handling)
-    echo "Usage: $0 [-n|--dry-run] [-v|--verbose] [-i|--interactive] [folder]"
-    echo "Run '$0 --help' for more information."
-    exit 1
-    ;;
-esac
-
-# Check for exiftool presence and warn user (once at the beginning)
-if ! command -v exiftool &> /dev/null; then
-    echo "Warning: exiftool is not installed. EXIF metadata date extraction will not be available."
-    echo "Install exiftool for full functionality (e.g., sudo apt install libimage-exiftool-perl)."
+    TARGET_FOLDER="$FOLDER_ARG"
+else
+    echo "Processing files in the current directory: $(pwd)"
+    [[ "$DRY_RUN" == true ]] && echo "**WARNING:** DRY-RUN mode. No timestamps will be modified."
+    [[ "$VERBOSE" == true ]] && echo "**VERBOSE:** Verbose output enabled."
+    [[ "$INTERACTIVE" == true ]] && echo "**INTERACTIVE:** Interactive mode enabled."
+    read -r -p "Are you sure? Type YES to confirm: " answer
+    if [[ "$answer" != "YES" ]]; then echo "Operation cancelled."; exit 1; fi
 fi
 
-# Loop through all files and folders in the current folder
-find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do # find + while loop to handle filenames with spaces and special characters
-    if [[ -d "$item" ]]; then
-        if [[ "$item" != "." ]]; then # Avoid recursively calling the current folder "."
-            "$0" "$item" # Recursively run the script for subfolders
-        fi
-    elif [[ -f "$item" ]]; then
-        filename=$(basename "$item")
-        file_prefix=$(echo "$filename" | cut -c 1-10) # Prefix to identify file type (increased length)
+if [[ -z "$_IS_RECURSIVE_CALL_MARKER" ]]; then
+    export _IS_RECURSIVE_CALL_MARKER="true"
+else
+    INITIAL_CALL=false
+fi
 
+if [[ "$INITIAL_CALL" == true ]] && ! command -v exiftool &> /dev/null && [[ "$VERBOSE" == false ]]; then
+    echo "Warning: exiftool not installed. EXIF date extraction may not be available for all files."
+    echo "Consider installing libimage-exiftool-perl."
+fi
+
+ORIGINAL_PWD=$(pwd)
+cd "$TARGET_FOLDER" || { echo "Error: Cannot access folder '$TARGET_FOLDER'"; exit 1; }
+verbose_log "Changed directory to $(pwd). Starting processing..."
+
+find . -maxdepth 1 -print0 | while IFS= read -r -d $'\0' item; do
+    item_path="${item#./}"
+    if [[ -z "$item_path" ]]; then continue; fi
+
+    if [[ -d "$item_path" ]]; then
+        verbose_log "Found directory: '$item_path'. Calling script recursively."
+        "$0" "${SCRIPT_OPTS_RECURSIVE[@]}" "$item_path"
+    elif [[ -f "$item_path" ]]; then
+        filename=$(basename "$item_path")
+        verbose_log "Processing file: '$filename' (full path: '$item_path')"
         extracted_date=""
 
-        if [[ "$file_prefix" == "IMG" ]] || [[ "$file_prefix" == "VID" ]] || [[ "$file_prefix" == "PANO" ]] || [[ "$file_prefix" == "Screenshot" ]] || [[ "$file_prefix" == "Schermata" ]]; then
-            # Try EXIF first for IMG, VID, PANO, Screenshot and Schermata
-            if extract_date_from_exif "$filename"; then
-                extracted_date=$(extract_date_from_exif "$filename")
-                verbose_log "EXIF date extraction was successful for '$filename'."
-                echo "EXIF date extracted from '$filename': $extracted_date"
-            else
-                if extract_date_from_filename "$filename"; then
-                    extracted_date=$(extract_date_from_filename "$filename")
-                    verbose_log "Date from filename extraction was successful for '$filename'."
-                    echo "Date from filename extracted from '$filename': $extracted_date (EXIF not available)"
-                else
-                    echo "No date found for '$filename'."
-                fi
-            fi
+        local exif_date
+        exif_date=$(extract_date_from_exif "$item_path")
+        if [[ $? -eq 0 ]]; then
+            extracted_date="$exif_date"
+            echo "EXIF date for '$filename': $extracted_date"
         else
-            echo "File '$filename' ignored (unrecognized prefix)."
+            verbose_log "EXIF failed or not applicable for '$filename'. Trying filename parsing."
+            local filename_date
+            filename_date=$(extract_date_from_filename "$filename")
+            if [[ $? -eq 0 ]]; then
+                extracted_date="$filename_date"
+                echo "Filename date for '$filename': $extracted_date (EXIF failed/not applicable)"
+            else
+                echo "No date found for '$filename' (EXIF and filename parsing failed)."
+                verbose_log "Both EXIF and filename parsing failed for '$filename'."
+            fi
         fi
 
-        if [[ -n "$extracted_date" ]]; then # If a valid date was extracted
-            if [[ "$DRY_RUN" == false ]]; then # If NOT in dry-run mode, modify timestamp
+        if [[ -n "$extracted_date" ]]; then
+            if [[ ${#extracted_date} -ne 12 ]]; then
+                echo "Error: Extracted date '$extracted_date' for '$filename' is invalid format. Skipping." >&2
+                verbose_log "Invalid date length ${#extracted_date} for '$extracted_date' for file '$filename'."
+                continue
+            fi
+
+            local touch_timestamp="$extracted_date"
+
+            if [[ "$DRY_RUN" == false ]]; then
                 if [[ "$INTERACTIVE" == true ]]; then
-                    read -r -p "Change timestamp of '$filename' to date: $extracted_date? (y/N) " answer
-                    if [[ ! "$answer" =~ ^[Yy]$ ]]; then
-                        echo "Timestamp of '$filename' NOT changed."
-                        continue # Skip to the next file
+                    local confirm_answer
+                    read -r -p "Change timestamp of '$filename' to $touch_timestamp? (y/N) " confirm_answer
+                    if [[ ! "$confirm_answer" =~ ^[Yy]$ ]]; then
+                        echo "Skipped timestamp change for '$filename'."
+                        verbose_log "User skipped '$filename'."
+                        continue
                     fi
                 fi
-                if ! touch -t "$extracted_date" "$item"; then # Error check for touch
-                    echo "Error: cannot change timestamp of '$item'." >&2
+                if ! touch -t "$touch_timestamp" "$item_path"; then
+                    echo "Error: Failed to change timestamp for '$item_path'." >&2
                 else
-                    echo "Timestamp of '$item' changed to date: $extracted_date"
-                    verbose_log "Timestamp of '$item' changed to: $extracted_date"
+                    echo "Timestamp for '$item_path' changed to: $touch_timestamp"
                 fi
-            else # If in dry-run mode, simulate modification
-                echo "[SIMULATION] Timestamp of '$item' *would be* changed to date: $extracted_date"
+            else
+                echo "[SIMULATION] Timestamp for '$item_path' *would be* changed to: $touch_timestamp"
             fi
         fi
+    else
+        verbose_log "Item '$item_path' is not a file or directory. Skipping."
     fi
 done
 
-echo "Script completed."
-if [[ "$DRY_RUN" == true ]]; then
-    echo "**DRY-RUN Mode:** No timestamps were actually modified."
+if [[ "$INITIAL_CALL" == true ]]; then
+    final_target_path="$TARGET_FOLDER"
+    if ! [[ "$TARGET_FOLDER" == /* ]]; then
+        final_target_path="$ORIGINAL_PWD/$TARGET_FOLDER"
+    fi
+    final_target_path_normalized=$(cd "$final_target_path" && pwd)
+
+    echo "Script processing completed for: $final_target_path_normalized"
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "**DRY-RUN Mode was active:** No timestamps were actually modified."
+    fi
+    unset _IS_RECURSIVE_CALL_MARKER
 fi
